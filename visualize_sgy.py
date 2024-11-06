@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 
 TEXT_HEADER_SIZE = 3200
@@ -26,17 +27,11 @@ TRACE_SORTING_CODES = {-1: "Other",
                       8: "Common mid-point",
                       9: "Common conversion point"}
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-i', dest='file_path', required=True)
-
-args = parser.parse_args()
-
-with open(args.file_path, "rb") as f:
-    # Text Header
+def read_text_header():
     text_header = f.read(TEXT_HEADER_SIZE)
     print("Textual File Header:\n", text_header.decode("ascii"))
     
-    # Binary Header
+def read_binary_header():
     binary_header_current = f.read(4)
     print("Job identification number: ", int.from_bytes(binary_header_current, byteorder="big"))
     
@@ -143,7 +138,9 @@ with open(args.file_path, "rb") as f:
     optional_text_header_num = int.from_bytes(binary_header_current, byteorder="big")
     print("Number of 3200-byte, Extended Textual File Header records following the Binary Header: ", optional_text_header_num)
     
-    # Traces
+    return num_traces, samples_num
+    
+def read_traces(num_traces, samples_num):
     f.seek(3840, 0)
     traces = bytearray()
     while (trace := f.read(4 * samples_num)):
@@ -153,6 +150,24 @@ with open(args.file_path, "rb") as f:
     dt = np.dtype(np.float32)
     dt = dt.newbyteorder('>')
     traces_array = np.frombuffer(traces, dtype=dt).reshape(num_traces, samples_num).T
-    plt.imshow(traces_array)
-    plt.show()
     
+    return traces_array
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', dest='file_path', required=True)
+
+    args = parser.parse_args()
+
+    with open(args.file_path, "rb") as f:
+        # Text Header
+        read_text_header()
+
+        # Binary Header
+        num_traces, samples_num = read_binary_header()
+
+        # Traces
+        traces_array = read_traces(num_traces, samples_num)
+        plt.imshow(traces_array)
+
+    plt.show()

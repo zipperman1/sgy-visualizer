@@ -160,3 +160,5 @@ cython_debug/
 # testing
 test-sgy/
 TestModel.sgy
+timing.*
+test.py

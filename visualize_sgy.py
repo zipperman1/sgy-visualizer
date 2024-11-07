@@ -1,12 +1,11 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 
 
 TEXT_HEADER_SIZE = 3200
 BINARY_HEADER_SIZE = 400
-TRACE_SIZE = 240
+TRACES_IDX = 3600
 
 DATA_FORMATS = {1: "4-byte IBM floating-point",
                 2: "4-byte, two's complement integer",
@@ -27,11 +26,11 @@ TRACE_SORTING_CODES = {-1: "Other",
                       8: "Common mid-point",
                       9: "Common conversion point"}
 
-def read_text_header():
+def read_text_header(f):
     text_header = f.read(TEXT_HEADER_SIZE)
     print("Textual File Header:\n", text_header.decode("ascii"))
     
-def read_binary_header():
+def read_binary_header(f):
     binary_header_current = f.read(4)
     print("Job identification number: ", int.from_bytes(binary_header_current, byteorder="big"))
     
@@ -139,19 +138,13 @@ def read_binary_header():
     print("Number of 3200-byte, Extended Textual File Header records following the Binary Header: ", optional_text_header_num)
     
     return num_traces, samples_num
-    
-def read_traces(num_traces, samples_num):
-    f.seek(3840, 0)
-    traces = bytearray()
-    while (trace := f.read(4 * samples_num)):
-        f.seek(240, 1)
-        traces += trace
-    
+
+def read_traces(f, num_traces, samples_num):
+    f.seek(0)
     dt = np.dtype(np.float32)
     dt = dt.newbyteorder('>')
-    traces_array = np.frombuffer(traces, dtype=dt).reshape(num_traces, samples_num).T
-    
-    return traces_array
+    traces = np.fromfile(f, dtype=dt, offset=TRACES_IDX).reshape(num_traces, samples_num + 60)[:, 60:].T
+    return traces
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -161,13 +154,13 @@ if __name__ == '__main__':
 
     with open(args.file_path, "rb") as f:
         # Text Header
-        read_text_header()
+        read_text_header(f)
 
         # Binary Header
-        num_traces, samples_num = read_binary_header()
+        num_traces, samples_num = read_binary_header(f)
 
         # Traces
-        traces_array = read_traces(num_traces, samples_num)
+        traces_array = read_traces(f, num_traces, samples_num)
         plt.imshow(traces_array)
 
     plt.show()
